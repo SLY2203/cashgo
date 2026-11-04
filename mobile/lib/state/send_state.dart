@@ -65,7 +65,6 @@ class SendState extends ChangeNotifier {
   }
 
   Future<bool> submitTransfer({
-    required String senderId,
     required String recipientPhone,
     required String recipientFullName,
   }) async {
@@ -76,7 +75,6 @@ class SendState extends ChangeNotifier {
     try {
       transaction = await api.createTransfer(
         quoteId: quote!['quote_id'],
-        senderId: senderId,
         recipientPhone: recipientPhone,
         recipientFullName: recipientFullName,
       );

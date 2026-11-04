@@ -4,9 +4,7 @@ import '../state/send_state.dart';
 import 'voucher_screen.dart';
 
 class SendMoneyScreen extends StatefulWidget {
-  /// In real app, resolve from auth session; seeded demo user passed in.
-  final String senderId;
-  const SendMoneyScreen({super.key, required this.senderId});
+  const SendMoneyScreen({super.key});
 
   @override
   State<SendMoneyScreen> createState() => _SendMoneyScreenState();
@@ -90,7 +88,6 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
                 ? null
                 : () async {
                     final ok = await context.read<SendState>().submitTransfer(
-                          senderId: widget.senderId,
                           recipientPhone: _phoneCtrl.text.trim(),
                           recipientFullName: _nameCtrl.text.trim(),
                         );

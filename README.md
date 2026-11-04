@@ -74,8 +74,10 @@ Free-tier notes:
 ```bash
 cd mobile
 flutter pub get
-flutter run --dart-define=SENDER_ID=<uuid from seed>
+flutter run
 ```
+
+The app defaults to `https://cashgo-api.onrender.com/api/v1`. For a local backend, override in `lib/api/cashgo_api.dart` or pass a different `baseUrl`. Sign in with phone OTP — the simulator returns the code on-screen (`dev_code`). Registered users log in via JWT persisted in SharedPreferences.
 
 Screens: **Send Money** (corridor picker, debounced live quote, fee breakdown, 60s lock countdown) → **Voucher/Receipt** (QR + status timeline), **Agent Map** (OSM pins, distance badges, hours, directions via Google Maps deep-link).
 
