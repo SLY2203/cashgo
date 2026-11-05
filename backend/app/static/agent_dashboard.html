@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CashGo Agent</title>
+<style>
+  * { box-sizing: border-box; font-family: system-ui, sans-serif; }
+  body { margin: 0; background: #f4f6f4; color: #222; }
+  header { background: #0f766e; color: #fff; padding: 14px 20px; display: flex;
+           justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  main { max-width: 700px; margin: 24px auto; padding: 0 16px; }
+  .card { background: #fff; border-radius: 10px; padding: 20px; margin-bottom: 20px;
+          box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  input, select { padding: 10px; border: 1px solid #ccc; border-radius: 8px; width: 100%; }
+  label { font-size: 12px; color: #666; display: block; margin: 10px 0 4px; }
+  button { background: #0f766e; color: #fff; border: 0; border-radius: 8px;
+           padding: 12px 18px; cursor: pointer; font-size: 15px; width: 100%; margin-top: 14px; }
+  button:disabled { opacity: .5; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+  .tabs button { flex: 1; background: #e5e7eb; color: #333; margin-top: 0; }
+  .tabs button.active { background: #0f766e; color: #fff; }
+  .result { border-radius: 8px; padding: 14px; margin-top: 14px; font-size: 14px; display: none; }
+  .ok { background: #d1fae5; color: #065f46; display: block; }
+  .bad { background: #fee2e2; color: #991b1b; display: block; }
+  .voucher-info { background: #f0fdfa; border: 1px solid #99f6e4; }
+  .big { font-size: 24px; font-weight: 700; }
+</style>
+</head>
+<body>
+<header>
+  <strong>CashGo Agent Booth</strong>
+  <span>
+    <select id="agent" style="width:auto"></select>
+    <input id="key" type="password" placeholder="Agent key" style="width:140px">
+    <button onclick="saveKey()" style="width:auto;margin:0;padding:8px 14px">Go</button>
+  </span>
+</header>
+<main>
+  <div class="tabs">
+    <button id="tab-w" class="active" onclick="showTab('w')">Cash Withdrawal</button>
+    <button id="tab-t" onclick="showTab('t')">Account Top-up</button>
+  </div>
+
+  <!-- withdrawal -->
+  <div class="card" id="pane-w">
+    <label>Voucher code</label>
+    <input id="vcode" placeholder="CG-XXXX-XXXX" style="text-transform:uppercase;font-size:18px">
+    <button onclick="lookup()">Check voucher</button>
+    <div class="result" id="vres"></div>
+    <button id="payBtn" style="display:none;background:#b91c1c" onclick="redeem()">
+      CONFIRM PAYOUT — hand cash to client</button>
+    <div class="result" id="pres"></div>
+  </div>
+
+  <!-- top-up -->
+  <div class="card" id="pane-t" style="display:none">
+    <label>Client phone (E.164)</label>
+    <input id="tphone" placeholder="+263...">
+    <label>Currency</label>
+    <select id="tccy">
+      <option>ZWG</option><option>USD</option><option>ZAR</option>
+      <option>ZMW</option><option>TZS</option>
+    </select>
+    <label>Amount received (cash)</label>
+    <input id="tamt" type="number" step="0.01">
+    <button onclick="cashIn()">Credit client wallet</button>
+    <div class="result" id="tres"></div>
+  </div>
+</main>
+<script>
+const API = '/api/v1/agent';
+let KEY = localStorage.getItem('agent_key') || '';
+let AGENT_ID = localStorage.getItem('agent_id') || '';
+if (KEY) document.getElementById('key').value = KEY;
+
+function saveKey() {
+  KEY = document.getElementById('key').value.trim();
+  localStorage.setItem('agent_key', KEY);
+  loadAgents();
+}
+function agentChanged() {
+  AGENT_ID = document.getElementById('agent').value;
+  localStorage.setItem('agent_id', AGENT_ID);
+}
+document.getElementById('agent').addEventListener('change', agentChanged);
+
+async function req(path, opts = {}) {
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'X-Agent-Key': KEY },
+  });
+  if (res.status === 403) throw new Error('Invalid agent key');
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.detail || ('HTTP ' + res.status));
+  return data;
+}
+
+async function loadAgents() {
+  try {
+    const agents = await req('/agents/');
+    const sel = document.getElementById('agent');
+    sel.innerHTML = agents.map(a =>
+      `<option value="${a.id}" ${a.id===AGENT_ID?'selected':''}>${a.name} — ${a.city}, ${a.country}</option>`).join('');
+    agentChanged();
+  } catch (e) { /* key not set yet */ }
+}
+
+function showTab(t) {
+  document.getElementById('pane-w').style.display = t==='w' ? '' : 'none';
+  document.getElementById('pane-t').style.display = t==='t' ? '' : 'none';
+  document.getElementById('tab-w').className = t==='w' ? 'active' : '';
+  document.getElementById('tab-t').className = t==='t' ? 'active' : '';
+}
+
+function show(el, ok, html) {
+  const d = document.getElementById(el);
+  d.className = 'result ' + (ok ? 'ok' : 'bad');
+  d.innerHTML = html;
+}
+
+async function lookup() {
+  const code = document.getElementById('vcode').value.trim();
+  const r = document.getElementById('vres');
+  const btn = document.getElementById('payBtn');
+  btn.style.display = 'none';
+  try {
+    const v = await req('/voucher/' + encodeURIComponent(code));
+    show('vres', v.redeemable,
+      `<div class="voucher-info" style="padding:10px;border-radius:6px">
+        <div class="big">${v.payout_amount} ${v.payout_currency}</div>
+        Pay to: <b>${v.recipient_name}</b> (${v.recipient_phone})<br>
+        Status: ${v.status}${v.redeemable ? '' : ' — NOT payable'}
+      </div>`);
+    if (v.redeemable) btn.style.display = '';
+  } catch (e) { show('vres', false, e.message); }
+}
+
+async function redeem() {
+  const code = document.getElementById('vcode').value.trim();
+  try {
+    const r = await req(`/redeem/${encodeURIComponent(code)}?agent_id=${AGENT_ID}`, {method:'POST'});
+    document.getElementById('payBtn').style.display = 'none';
+    document.getElementById('vres').style.display = 'none';
+    show('pres', true, `Paid out at ${r.agent} — ${r.paid_out_at}. Transaction COMPLETED.`);
+  } catch (e) { show('pres', false, e.message); }
+}
+
+async function cashIn() {
+  try {
+    const r = await req('/cash-in/', {method:'POST', body: JSON.stringify({
+      agent_id: AGENT_ID,
+      client_phone: document.getElementById('tphone').value.trim(),
+      currency: document.getElementById('tccy').value,
+      amount: parseFloat(document.getElementById('tamt').value),
+    })});
+    show('tres', true,
+      `Credited <b>${r.credited} ${r.currency}</b> to ${r.client}.<br>
+       New balance: <b>${r.new_balance} ${r.currency}</b>`);
+  } catch (e) { show('tres', false, e.message); }
+}
+
+if (KEY) loadAgents();
+</script>
+</body>
+</html>

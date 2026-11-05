@@ -31,3 +31,10 @@ def require_admin(x_admin_key: str = Header(...)) -> None:
     """Static-key guard for admin routes — swap for RBAC in production."""
     if x_admin_key != settings.ADMIN_API_KEY:
         raise HTTPException(403, "Invalid admin key")
+
+
+def require_agent(x_agent_key: str = Header(...)) -> None:
+    """Static-key guard for the agent dashboard API. In production each
+    agent gets their own credential + session; for MVP one shared key."""
+    if x_agent_key != settings.AGENT_API_KEY:
+        raise HTTPException(403, "Invalid agent key")

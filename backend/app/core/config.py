@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     OTP_TTL_SECONDS: int = 300
     OTP_MAX_ATTEMPTS: int = 5
     ADMIN_API_KEY: str = "dev-admin-key"
+    AGENT_API_KEY: str = "dev-agent-key"
     # Provider keys — leave blank for simulator/dev mode
     PAYSTACK_SECRET_KEY: str = ""
     AT_USERNAME: str = ""       # Africa's Talking username ("sandbox" in test)
