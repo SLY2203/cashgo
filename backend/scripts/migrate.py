@@ -14,9 +14,8 @@ MIGRATIONS_DIR = pathlib.Path(__file__).resolve().parent.parent / "migrations"
 
 
 def main() -> None:
-    url = settings.DATABASE_URL
-    if url.startswith("postgres://"):
-        url = "postgresql://" + url[len("postgres://"):]
+    url = settings.DATABASE_URL.replace("postgres://", "postgresql://", 1)
+    url = url.replace("postgresql+psycopg2://", "postgresql://", 1)
     conn = psycopg2.connect(url)
     conn.autocommit = True
     cur = conn.cursor()
