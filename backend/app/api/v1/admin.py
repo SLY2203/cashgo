@@ -88,7 +88,7 @@ def list_transactions(limit: int = 50, db: Session = Depends(get_db)):
 # ---- dashboard page (unprotected static shell) ---------------------------------
 pages = APIRouter(tags=["admin"])
 
-_DASHBOARD_HTML = (Path(__file__).resolve().parents[3]
+_DASHBOARD_HTML = (Path(__file__).resolve().parents[2]
                    / "static" / "admin_dashboard.html")
 
 
