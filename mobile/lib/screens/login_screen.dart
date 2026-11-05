@@ -29,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          const Icon(Icons.send_money, size: 64, color: Colors.green),
+          const Icon(Icons.send, size: 64, color: Colors.green),
           const SizedBox(height: 24),
           TextField(
             controller: _phone,

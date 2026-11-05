@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CashGo Admin</title>
+<style>
+  * { box-sizing: border-box; font-family: system-ui, sans-serif; }
+  body { margin: 0; background: #f4f6f4; color: #222; }
+  header { background: #15803d; color: #fff; padding: 14px 20px; display: flex;
+           justify-content: space-between; align-items: center; }
+  main { max-width: 1100px; margin: 20px auto; padding: 0 16px; }
+  .cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  .card { background: #fff; border-radius: 10px; padding: 16px 20px; flex: 1;
+          min-width: 150px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  .card h3 { margin: 0 0 6px; font-size: 13px; color: #666; font-weight: 600; }
+  .card .num { font-size: 26px; font-weight: 700; }
+  section { background: #fff; border-radius: 10px; padding: 16px 20px;
+            margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid #eee; }
+  th { color: #666; font-weight: 600; }
+  input, select { padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px; }
+  button { background: #15803d; color: #fff; border: 0; border-radius: 6px;
+           padding: 7px 14px; cursor: pointer; }
+  button.ghost { background: #e5e7eb; color: #333; }
+  button.danger { background: #b91c1c; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+               gap: 8px; margin: 10px 0; }
+  .badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .READY_FOR_PICKUP { background: #fef3c7; color: #92400e; }
+  .COMPLETED { background: #d1fae5; color: #065f46; }
+  .CANCELLED, .FAILED { background: #fee2e2; color: #991b1b; }
+  .PENDING { background: #e0e7ff; color: #3730a3; }
+  .inactive { opacity: .45; }
+  #err { color: #b91c1c; padding: 8px 0; display: none; }
+</style>
+</head>
+<body>
+<header>
+  <strong>CashGo Admin</strong>
+  <span id="keyBox">
+    <input id="key" type="password" placeholder="X-Admin-Key" size="22">
+    <button onclick="saveKey()">Connect</button>
+  </span>
+</header>
+<main>
+  <div id="err"></div>
+  <div class="cards" id="stats"></div>
+
+  <section>
+    <h3>Corridor Fee Tiers</h3>
+    <div class="form-grid">
+      <input id="f_src" placeholder="Src (US)">
+      <input id="f_dst" placeholder="Dst (NG)">
+      <input id="f_sc" placeholder="Send cur">
+      <input id="f_pc" placeholder="Payout cur">
+      <input id="f_min" type="number" placeholder="Min">
+      <input id="f_max" type="number" placeholder="Max">
+      <input id="f_flat" type="number" step="0.01" placeholder="Flat fee">
+      <input id="f_pct" type="number" step="0.0001" placeholder="Pct fee (0.015)">
+      <input id="f_mk" type="number" step="0.0001" placeholder="FX markup (0.012)">
+      <button onclick="createFee()">+ Add tier</button>
+    </div>
+    <table id="fees"><thead><tr>
+      <th>Corridor</th><th>Tier</th><th>Flat</th><th>%</th><th>Markup</th><th>Active</th><th></th>
+    </tr></thead><tbody></tbody></table>
+  </section>
+
+  <section>
+    <h3>Recent Transactions <button class="ghost" onclick="loadAll()">↻</button></h3>
+    <table id="txns"><thead><tr>
+      <th>Voucher</th><th>Status</th><th>Send</th><th>Fee</th><th>Payout</th><th>Recipient</th><th>Created</th>
+    </tr></thead><tbody></tbody></table>
+  </section>
+</main>
+<script>
+const API = '/api/v1/admin';
+let KEY = localStorage.getItem('admin_key') || '';
+if (KEY) document.getElementById('key').value = KEY;
+
+function saveKey() {
+  KEY = document.getElementById('key').value.trim();
+  localStorage.setItem('admin_key', KEY);
+  loadAll();
+}
+
+async function req(path, opts = {}) {
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Key': KEY },
+  });
+  if (res.status === 403) { err('Invalid admin key'); throw new Error('403'); }
+  if (!res.ok) { err('HTTP ' + res.status + ': ' + await res.text()); throw new Error(res.status); }
+  return res.status === 204 ? null : res.json();
+}
+
+function err(m) {
+  const e = document.getElementById('err');
+  e.textContent = m; e.style.display = 'block';
+  setTimeout(() => e.style.display = 'none', 6000);
+}
+
+async function loadAll() {
+  try {
+    const s = await req('/stats/');
+    document.getElementById('stats').innerHTML = [
+      ['Users', s.users], ['Transactions', s.transactions],
+      ...Object.entries(s.by_status).map(([k, v]) => [k, v]),
+    ].map(([l, v]) => `<div class="card"><h3>${l}</h3><div class="num">${v}</div></div>`).join('');
+
+    const fees = await req('/fees/');
+    document.querySelector('#fees tbody').innerHTML = fees.map(f => `
+      <tr class="${f.is_active ? '' : 'inactive'}">
+        <td>${f.source_country}→${f.dest_country} ${f.send_currency}/${f.payout_currency}</td>
+        <td>${f.min_amount}–${f.max_amount}</td>
+        <td>${f.flat_fee}</td><td>${(f.percent_fee*100).toFixed(2)}%</td>
+        <td>${(f.fx_margin_markup*100).toFixed(2)}%</td>
+        <td>${f.is_active ? '✓' : '✗'}</td>
+        <td>${f.is_active ? `<button class="danger" onclick="deactivate('${f.id}')">Off</button>` : ''}</td>
+      </tr>`).join('');
+
+    const txns = await req('/transactions/');
+    document.querySelector('#txns tbody').innerHTML = txns.map(t => `
+      <tr><td><b>${t.voucher}</b></td>
+        <td><span class="badge ${t.status}">${t.status}</span></td>
+        <td>${t.send}</td><td>${t.fee}</td><td>${t.payout}</td>
+        <td>${t.recipient}</td><td>${new Date(t.created_at).toLocaleString()}</td>
+      </tr>`).join('');
+  } catch (e) { /* err already shown */ }
+}
+
+async function createFee() {
+  await req('/fees/', { method: 'POST', body: JSON.stringify({
+    source_country: f_src.value, dest_country: f_dst.value,
+    send_currency: f_sc.value, payout_currency: f_pc.value,
+    min_amount: +f_min.value, max_amount: +f_max.value,
+    flat_fee: +f_flat.value, percent_fee: +f_pct.value,
+    fx_margin_markup: +f_mk.value, is_active: true,
+  })});
+  loadAll();
+}
+
+async function deactivate(id) {
+  await req('/fees/' + id, { method: 'DELETE' });
+  loadAll();
+}
+
+if (KEY) loadAll();
+</script>
+</body>
+</html>

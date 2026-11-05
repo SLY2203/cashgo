@@ -9,6 +9,7 @@ app.include_router(remittances.router, prefix="/api/v1")
 app.include_router(agents.router, prefix="/api/v1")
 app.include_router(wallets.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1")
+app.include_router(admin.pages)
 
 
 @app.get("/health")
