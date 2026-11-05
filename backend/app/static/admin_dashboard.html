@@ -70,6 +70,7 @@
   <button id="nav-overview" class="active" onclick="tab('overview')">Overview</button>
   <button id="nav-fees" onclick="tab('fees')">Fee Tiers</button>
   <button id="nav-txns" onclick="tab('txns')">Transactions</button>
+  <button id="nav-booth" onclick="tab('booth')">Agent Booth</button>
 </nav>
 <div id="err"></div>
 <main>
@@ -118,16 +119,20 @@
       </tr></thead><tbody></tbody></table>
     </section>
   </div>
+  <!-- Agent booth console (same person for now — embedded, one key) -->
+  <div id="pane-booth" style="display:none;height:calc(100vh - 160px)">
+    <iframe src="/agent/dashboard/" style="width:100%;height:100%;border:0;border-radius:12px;background:#fff"></iframe>
+  </div>
 </main>
 <script>
 const API = '/api/v1/admin';
 let KEY = localStorage.getItem('admin_key') || '';
 if (KEY) document.getElementById('key').value = KEY;
 
-const LOADERS = { overview: loadStats, fees: loadFees, txns: loadTxns };
+const LOADERS = { overview: loadStats, fees: loadFees, txns: loadTxns, booth: () => {} };
 
 function tab(t) {
-  for (const k of ['overview','fees','txns']) {
+  for (const k of ['overview','fees','txns','booth']) {
     document.getElementById('pane-'+k).style.display = k===t ? '' : 'none';
     document.getElementById('nav-'+k).className = k===t ? 'active' : '';
   }
@@ -140,7 +145,7 @@ function saveKey() {
   LOADERS[currentTab()]();
 }
 function currentTab() {
-  return ['overview','fees','txns'].find(k =>
+  return ['overview','fees','txns','booth'].find(k =>
     document.getElementById('nav-'+k).className === 'active');
 }
 

@@ -34,7 +34,8 @@ def require_admin(x_admin_key: str = Header(...)) -> None:
 
 
 def require_agent(x_agent_key: str = Header(...)) -> None:
-    """Static-key guard for the agent dashboard API. In production each
-    agent gets their own credential + session; for MVP one shared key."""
-    if x_agent_key != settings.AGENT_API_KEY:
+    """Static-key guard for the agent dashboard API. Accepts the admin key
+    too — one person runs ops at this stage. In production each agent gets
+    their own credential + session."""
+    if x_agent_key not in (settings.AGENT_API_KEY, settings.ADMIN_API_KEY):
         raise HTTPException(403, "Invalid agent key")

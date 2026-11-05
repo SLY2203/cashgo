@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../api/cashgo_api.dart';
 import '../state/auth_state.dart';
 import 'agents_map_screen.dart';
+import 'scan_screen.dart';
 import 'send_money_screen.dart';
 import 'voucher_screen.dart';
 
@@ -56,6 +57,14 @@ class _HomeScreenState extends State<HomeScreen> {
               label: const Text('Verify KYC',
                   style: TextStyle(color: Colors.white)),
             ),
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner),
+            tooltip: 'Scan agent QR',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ScanScreen()),
+            ).then((didScan) { if (didScan == true) _refresh(); }),
+          ),
           IconButton(
             icon: const Icon(Icons.map_outlined),
             tooltip: 'Pickup agents',

@@ -154,6 +154,17 @@ class CashGoApi {
     return jsonDecode(res.body) as List;
   }
 
+  // ---- QR scans (agent-initiated) ------------------------------------------------
+  Future<Map<String, dynamic>> scanCashin(
+          String agentId, double amount, String currency) async =>
+      _json(await _post('/scan/cashin',
+          {'agent_id': agentId, 'amount': amount, 'currency': currency}));
+
+  Future<Map<String, dynamic>> scanCashout(
+          String agentId, double amount, String currency) async =>
+      _json(await _post('/scan/cashout',
+          {'agent_id': agentId, 'amount': amount, 'currency': currency}));
+
   // ---- Agents --------------------------------------------------------------------
   Future<List<dynamic>> nearestAgents({
     required double latitude,
