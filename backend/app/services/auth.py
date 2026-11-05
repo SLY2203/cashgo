@@ -26,7 +26,8 @@ def request_otp(db: Session, phone: str, purpose: str) -> str:
         expires_at=datetime.now(timezone.utc) + timedelta(seconds=settings.OTP_TTL_SECONDS),
     ))
     db.commit()
-    print(f"[OTP -> {phone}] CashGo code: {code}")
+    from app.services.messaging import send_otp_sms
+    send_otp_sms(phone, code)
     return code
 
 

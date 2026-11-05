@@ -35,7 +35,9 @@ def otp_request(body: OtpRequest, db: Session = Depends(get_db)):
         raise HTTPException(404, "Phone not registered")
     # Dev simulator returns the code in the response; prod sends via SMS only.
     code = auth_service.request_otp(db, body.phone, purpose="login")
-    return {"sent": True, "dev_code": code}
+    from app.core.config import settings
+    return {"sent": True,
+            "dev_code": code if not settings.AT_API_KEY else None}
 
 
 @router.post("/otp/verify/", response_model=TokenResponse)
@@ -58,8 +60,11 @@ def submit_kyc(body: KycSubmitRequest,
                db: Session = Depends(get_db)):
     """Simulated instant KYC check — in prod this posts to a verification
     provider (Smile Identity, Dojah, etc.) and a webhook flips the status."""
+    from app.services import kyc as kyc_service
+    result = kyc_service.verify_id(user.country_code, body.document_type,
+                                   body.id_number, user.full_name, user.phone)
     user.kyc_document = body.document_type
     user.kyc_id_number = body.id_number
-    user.kyc_status = KycStatus.VERIFIED
+    user.kyc_status = KycStatus.VERIFIED if result.verified else KycStatus.REJECTED
     db.commit()
-    return {"kyc_status": user.kyc_status.value}
+    return {"kyc_status": user.kyc_status.value, "detail": result.message}

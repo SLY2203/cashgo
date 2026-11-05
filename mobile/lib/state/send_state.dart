@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
 import '../api/cashgo_api.dart';
 
 /// State for the Send Money flow: debounced quotes + transfer submission.
@@ -64,11 +65,16 @@ class SendState extends ChangeNotifier {
     notifyListeners();
   }
 
+  String? _idemKey;
+
   Future<bool> submitTransfer({
     required String recipientPhone,
     required String recipientFullName,
   }) async {
     if (quote == null) return false;
+    // One key per quote — a retry after timeout returns the same transfer
+    // instead of double-charging.
+    _idemKey ??= const Uuid().v4();
     loading = true;
     error = null;
     notifyListeners();
@@ -77,7 +83,9 @@ class SendState extends ChangeNotifier {
         quoteId: quote!['quote_id'],
         recipientPhone: recipientPhone,
         recipientFullName: recipientFullName,
+        idempotencyKey: _idemKey,
       );
+      _idemKey = null;
       loading = false;
       notifyListeners();
       return true;

@@ -126,6 +126,7 @@ class Transaction(Base):
     exchange_rate: Mapped[float] = mapped_column(Numeric(20, 8))
     payout_amount: Mapped[float] = mapped_column(Numeric(18, 4))
     voucher_code: Mapped[str] = mapped_column(String(12), unique=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(64), unique=True)
     status: Mapped[TxnStatus] = mapped_column(Enum(TxnStatus, name="txn_status"), default=TxnStatus.PENDING)
     pickup_agent_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("pickup_agents.id"))
     paid_out_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
@@ -160,6 +161,22 @@ class Wallet(Base):
     escrowed: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class PaymentIntent(Base):
+    __tablename__ = "payment_intents"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"))
+    wallet_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("wallets.id"))
+    reference: Mapped[str] = mapped_column(String(80), unique=True)
+    currency: Mapped[str] = mapped_column(String(3))
+    amount: Mapped[float] = mapped_column(Numeric(18, 4))
+    provider: Mapped[str] = mapped_column(String(24), default="paystack")
+    status: Mapped[str] = mapped_column(String(16), default="INITIATED")
+    payment_url: Mapped[str | None] = mapped_column(Text)
+    paid_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
 
 
 class LedgerEntry(Base):

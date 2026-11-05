@@ -90,8 +90,14 @@ class CashGoApi {
     return jsonDecode(res.body) as List;
   }
 
+  /// Returns {reference, dev_mode, payment_url, status}. If payment_url is
+  /// set, open it — Paystack's hosted checkout completes the payment and the
+  /// webhook credits the wallet.
   Future<Map<String, dynamic>> topup(String currency, double amount) async =>
       _json(await _post('/wallets/topup/', {'currency': currency, 'amount': amount}));
+
+  Future<Map<String, dynamic>> paymentStatus(String reference) async =>
+      _json(await _get('/payments/intents/$reference/status'));
 
   // ---- Remittances --------------------------------------------------------------
   Future<List<dynamic>> corridors() async {
@@ -120,13 +126,27 @@ class CashGoApi {
     required String quoteId,
     required String recipientPhone,
     required String recipientFullName,
-  }) async =>
-      _json(await _post('/remittances/transfer/', {
-        'quote_id': quoteId,
-        'recipient_phone': recipientPhone,
-        'recipient_full_name': recipientFullName,
-        'payout_method': 'CASH_PICKUP',
-      }), expect: 201);
+    String? idempotencyKey,
+  }) async {
+    final res = await _request(() => http.post(
+          Uri.parse('$baseUrl/remittances/transfer/'),
+          headers: {
+            ..._headers,
+            if (idempotencyKey != null)
+              'Idempotency-Key': idempotencyKey,
+          },
+          body: jsonEncode({
+            'quote_id': quoteId,
+            'recipient_phone': recipientPhone,
+            'recipient_full_name': recipientFullName,
+            'payout_method': 'CASH_PICKUP',
+          }),
+        ));
+    if (res.statusCode != 201 && res.statusCode != 200) {
+      throw ApiException(res.statusCode, res.body);
+    }
+    return jsonDecode(res.body);
+  }
 
   Future<List<dynamic>> transactions() async {
     final res = await _get('/remittances/transactions/');

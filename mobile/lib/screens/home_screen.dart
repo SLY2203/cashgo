@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../api/cashgo_api.dart';
 import '../state/auth_state.dart';
 import 'agents_map_screen.dart';
@@ -199,6 +200,7 @@ class _TopupDialogState extends State<TopupDialog> {
   String _ccy = 'USD';
   bool _busy = false;
   String? _error;
+  String? _pendingRef;
 
   static const _ccys = ['USD', 'GBP', 'ZMW', 'TZS', 'ZAR', 'ZWG'];
 
@@ -235,9 +237,25 @@ class _TopupDialogState extends State<TopupDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: const Text('Close'),
         ),
-        FilledButton(
+        if (_pendingRef != null)
+          FilledButton(
+            onPressed: () async {
+              final s = await context
+                  .read<CashGoApi>()
+                  .paymentStatus(_pendingRef!);
+              if (s['status'] == 'PAID') {
+                widget.onDone();
+                if (context.mounted) Navigator.pop(context);
+              } else {
+                setState(() => _error = 'Payment not confirmed yet');
+              }
+            },
+            child: const Text("I've paid"),
+          )
+        else
+          FilledButton(
           onPressed: _busy
               ? null
               : () async {
@@ -248,11 +266,23 @@ class _TopupDialogState extends State<TopupDialog> {
                   }
                   setState(() => _busy = true);
                   try {
-                    await context
+                    final res = await context
                         .read<CashGoApi>()
                         .topup(_ccy, amt);
-                    widget.onDone();
-                    if (context.mounted) Navigator.pop(context);
+                    if (res['payment_url'] != null) {
+                      // Paystack hosted checkout — pay in browser, webhook credits
+                      await launchUrl(Uri.parse(res['payment_url']),
+                          mode: LaunchMode.externalApplication);
+                      setState(() {
+                        _busy = false;
+                        _error = 'Complete payment in browser — '
+                            'balance updates automatically';
+                        _pendingRef = res['reference'];
+                      });
+                    } else {
+                      widget.onDone();
+                      if (context.mounted) Navigator.pop(context);
+                    }
                   } on ApiException catch (e) {
                     setState(() {
                       _busy = false;
