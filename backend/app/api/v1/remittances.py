@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -99,7 +99,8 @@ def create_quote(body: QuoteRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/transfer/", response_model=TransactionResponse, status_code=201)
-def create_transfer(body: TransferRequest, db: Session = Depends(get_db),
+def create_transfer(body: TransferRequest, response: Response,
+                    db: Session = Depends(get_db),
                     sender: User = Depends(get_current_user),
                     idempotency_key: str | None = Header(default=None)):
     # Idempotent retry: same key → same transaction, never a double escrow
@@ -111,6 +112,7 @@ def create_transfer(body: TransferRequest, db: Session = Depends(get_db),
         if existing is not None:
             if existing.sender_id != sender.id:
                 raise HTTPException(409, "Idempotency key belongs to another user")
+            response.status_code = 200
             return _txn_response(existing)
     if sender.kyc_status != KycStatus.VERIFIED:
         raise HTTPException(403, f"KYC not verified (status: {sender.kyc_status.value})")
