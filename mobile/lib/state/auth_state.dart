@@ -53,6 +53,12 @@ class AuthState extends ChangeNotifier {
         devCode = null;
       });
 
+  Future<bool> submitKyc(String documentType, String idNumber) =>
+      _run(() async {
+        final res = await api.submitKyc(documentType, idNumber);
+        kycStatus = res['kyc_status'];
+      });
+
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_kToken);

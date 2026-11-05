@@ -124,6 +124,12 @@ class WalletResponse(BaseModel):
     escrowed: Decimal
 
 
+# ---- KYC -----------------------------------------------------------------------
+class KycSubmitRequest(BaseModel):
+    document_type: str = Field(pattern="^(PASSPORT|NATIONAL_ID|DRIVERS_LICENSE)$")
+    id_number: str = Field(min_length=4, max_length=64)
+
+
 # ---- Redemption ----------------------------------------------------------------
 class RedeemRequest(BaseModel):
     voucher_code: str

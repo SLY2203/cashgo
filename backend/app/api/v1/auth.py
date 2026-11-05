@@ -3,9 +3,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.models import User
-from app.schemas import (OtpRequest, OtpVerifyRequest, RegisterRequest,
-                         TokenResponse)
+from app.core.security import get_current_user
+from app.models import KycStatus, User
+from app.schemas import (KycSubmitRequest, OtpRequest, OtpVerifyRequest,
+                         RegisterRequest, TokenResponse)
 from app.services import auth as auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -49,3 +50,16 @@ def otp_verify(body: OtpVerifyRequest, db: Session = Depends(get_db)):
         raise HTTPException(401, str(e))
     return TokenResponse(access_token=auth_service.issue_token(user),
                          user_id=user.id, kyc_status=user.kyc_status.value)
+
+
+@router.post("/kyc/")
+def submit_kyc(body: KycSubmitRequest,
+               user: User = Depends(get_current_user),
+               db: Session = Depends(get_db)):
+    """Simulated instant KYC check — in prod this posts to a verification
+    provider (Smile Identity, Dojah, etc.) and a webhook flips the status."""
+    user.kyc_document = body.document_type
+    user.kyc_id_number = body.id_number
+    user.kyc_status = KycStatus.VERIFIED
+    db.commit()
+    return {"kyc_status": user.kyc_status.value}

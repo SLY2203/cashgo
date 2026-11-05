@@ -75,6 +75,14 @@ class CashGoApi {
     return _json(res);
   }
 
+  Future<Map<String, dynamic>> submitKyc(
+      String documentType, String idNumber) async {
+    final res = await _post('/auth/kyc/',
+        {'document_type': documentType, 'id_number': idNumber});
+    if (res.statusCode != 200) throw ApiException(res.statusCode, res.body);
+    return jsonDecode(res.body);
+  }
+
   // ---- Wallets ----------------------------------------------------------------
   Future<List<dynamic>> wallets() async {
     final res = await _get('/wallets/');

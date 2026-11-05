@@ -61,6 +61,17 @@ class _Home extends StatelessWidget {
           children: [
             Text('KYC: ${auth.kycStatus ?? "unknown"}',
                 style: Theme.of(context).textTheme.bodySmall),
+            if (auth.kycStatus != 'VERIFIED') ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.verified_user),
+                label: const Text('Verify Identity'),
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => const _KycDialog(),
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             FilledButton.icon(
               icon: const Icon(Icons.send),
@@ -84,6 +95,65 @@ class _Home extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _KycDialog extends StatefulWidget {
+  const _KycDialog();
+
+  @override
+  State<_KycDialog> createState() => _KycDialogState();
+}
+
+class _KycDialogState extends State<_KycDialog> {
+  final _id = TextEditingController();
+  String _doc = 'NATIONAL_ID';
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Verify Identity'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DropdownButtonFormField<String>(
+            value: _doc,
+            decoration: const InputDecoration(labelText: 'Document type'),
+            items: const [
+              DropdownMenuItem(value: 'NATIONAL_ID', child: Text('National ID')),
+              DropdownMenuItem(value: 'PASSPORT', child: Text('Passport')),
+              DropdownMenuItem(
+                  value: 'DRIVERS_LICENSE', child: Text("Driver's license")),
+            ],
+            onChanged: (v) => setState(() => _doc = v!),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _id,
+            decoration: const InputDecoration(labelText: 'ID number'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _busy
+              ? null
+              : () async {
+                  setState(() => _busy = true);
+                  await context
+                      .read<AuthState>()
+                      .submitKyc(_doc, _id.text.trim());
+                  if (context.mounted) Navigator.pop(context);
+                },
+          child: const Text('Submit'),
+        ),
+      ],
     );
   }
 }
