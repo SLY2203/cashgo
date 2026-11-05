@@ -31,6 +31,30 @@ def _txn_response(txn: Transaction) -> TransactionResponse:
     )
 
 
+@router.get("/corridors/")
+def list_corridors(db: Session = Depends(get_db)):
+    """Active corridors grouped as {src_country, dst_country} → send/payout
+    currencies. The app builds its pickers from this so admin-added corridors
+    appear without an app update."""
+    from app.models import CorridorFeeConfig
+    rows = db.execute(
+        select(CorridorFeeConfig.source_country,
+               CorridorFeeConfig.dest_country,
+               CorridorFeeConfig.send_currency,
+               CorridorFeeConfig.payout_currency)
+        .where(CorridorFeeConfig.is_active.is_(True))).all()
+    corridors: dict[tuple, dict] = {}
+    for src, dst, sc, pc in rows:
+        key = (src, sc, dst)
+        c = corridors.setdefault(key, {
+            "source_country": src, "send_currency": sc,
+            "dest_country": dst, "payout_currencies": []})
+        if pc not in c["payout_currencies"]:
+            c["payout_currencies"].append(pc)
+    return sorted(corridors.values(),
+                  key=lambda c: (c["source_country"], c["dest_country"]))
+
+
 @router.post("/quote/", response_model=QuoteResponse)
 def create_quote(body: QuoteRequest, db: Session = Depends(get_db)):
     try:

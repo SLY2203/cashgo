@@ -41,27 +41,32 @@ for cfg in db.execute(select(CorridorFeeConfig)).scalars():
     if cfg.dest_country not in LIVE_DESTS:
         cfg.is_active = False
 
-def tier(src, dst, lo, hi, flat, pct, mk):
+# payout currencies offered per destination — receiver's choice
+PAYOUTS = {"ZW": ["ZWG", "USD"], "ZM": ["ZMW", "USD"],
+           "ZA": ["ZAR", "USD"], "TZ": ["TZS", "USD"]}
+
+def tier(src, dst, payout_ccy, lo, hi, flat, pct, mk):
     exists = db.execute(select(CorridorFeeConfig).where(
         CorridorFeeConfig.source_country == src,
         CorridorFeeConfig.dest_country == dst,
         CorridorFeeConfig.send_currency == CCY[src],
-        CorridorFeeConfig.payout_currency == CCY[dst],
+        CorridorFeeConfig.payout_currency == payout_ccy,
         CorridorFeeConfig.min_amount == lo)).scalar_one_or_none()
     if exists is None:
         db.add(CorridorFeeConfig(
             source_country=src, dest_country=dst,
-            send_currency=CCY[src], payout_currency=CCY[dst],
+            send_currency=CCY[src], payout_currency=payout_ccy,
             min_amount=lo, max_amount=hi,
             flat_fee=flat, percent_fee=pct, fx_margin_markup=mk, is_active=True))
 
-for dst in sorted(LIVE_DESTS):
-    for src in ("US", "GB"):
-        tier(src, dst, 0, 1000, "4.99", "0.015", "0.012")
-        tier(src, dst, 1000, 10000, "6.99", "0.010", "0.010")
-    for src in ("ZM", "TZ", "ZA", "ZW"):
-        if src != dst:
-            tier(src, dst, 0, 5000, "10.00", "0.010", "0.008")
+for dst, payouts in PAYOUTS.items():
+    for pc in payouts:
+        for src in ("US", "GB"):
+            tier(src, dst, pc, 0, 1000, "4.99", "0.015", "0.012")
+            tier(src, dst, pc, 1000, 10000, "6.99", "0.010", "0.010")
+        for src in ("ZM", "TZ", "ZA", "ZW"):
+            if src != dst:
+                tier(src, dst, pc, 0, 5000, "10.00", "0.010", "0.008")
 
 # --- agents (upsert by name so reseeding fixes stale coordinates) --------------
 from geoalchemy2.elements import WKTElement

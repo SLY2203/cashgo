@@ -94,6 +94,13 @@ class CashGoApi {
       _json(await _post('/wallets/topup/', {'currency': currency, 'amount': amount}));
 
   // ---- Remittances --------------------------------------------------------------
+  Future<List<dynamic>> corridors() async {
+    final res = await _get('/remittances/corridors/');
+    if (res.statusCode != 200) throw ApiException(res.statusCode, res.body);
+    return jsonDecode(res.body) as List;
+  }
+
+
   Future<Map<String, dynamic>> getQuote({
     required String sourceCountry,
     required String destCountry,
