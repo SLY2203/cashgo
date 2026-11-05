@@ -6,41 +6,55 @@
 <title>CashGo Admin</title>
 <style>
   * { box-sizing: border-box; font-family: system-ui, sans-serif; }
-  body { margin: 0; background: #f4f6f4; color: #222; }
-  header { background: #15803d; color: #fff; padding: 14px 20px; display: flex;
+  body { margin: 0; background: #f1f5f2; color: #1f2937; }
+  header { background: #14532d; color: #fff; padding: 16px 24px; display: flex;
            justify-content: space-between; align-items: center; }
-  main { max-width: 1100px; margin: 20px auto; padding: 0 16px; }
-  .cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
-  .card { background: #fff; border-radius: 10px; padding: 16px 20px; flex: 1;
-          min-width: 150px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
-  .card h3 { margin: 0 0 6px; font-size: 13px; color: #666; font-weight: 600; }
-  .card .num { font-size: 26px; font-weight: 700; }
-  section { background: #fff; border-radius: 10px; padding: 16px 20px;
-            margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid #eee; }
-  th { color: #666; font-weight: 600; }
-  input, select { padding: 6px 8px; border: 1px solid #ccc; border-radius: 6px; }
-  button { background: #15803d; color: #fff; border: 0; border-radius: 6px;
-           padding: 7px 14px; cursor: pointer; }
-  button.ghost { background: #e5e7eb; color: #333; }
-  button.danger { background: #b91c1c; }
-  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-               gap: 8px; margin: 10px 0; }
-  .badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  header strong { font-size: 18px; }
+  main { max-width: 1000px; margin: 28px auto; padding: 0 20px; }
+  h3 { margin: 0 0 14px; font-size: 15px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr));
+           gap: 14px; margin-bottom: 24px; }
+  .card { background: #fff; border-radius: 12px; padding: 18px 20px;
+          box-shadow: 0 1px 3px rgba(0,0,0,.07); }
+  .card h3 { font-size: 12px; color: #6b7280; font-weight: 600;
+             text-transform: uppercase; letter-spacing: .4px; }
+  .card .num { font-size: 28px; font-weight: 700; }
+  section { background: #fff; border-radius: 12px; padding: 22px 24px;
+            margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,.07); }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; padding: 10px 8px; color: #6b7280; font-weight: 600;
+       font-size: 12px; text-transform: uppercase; letter-spacing: .3px;
+       border-bottom: 2px solid #e5e7eb; }
+  td { padding: 10px 8px; border-bottom: 1px solid #f3f4f6; }
+  label { display: block; font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+  input, select { width: 100%; padding: 9px 10px; border: 1px solid #d1d5db;
+                  border-radius: 8px; font-size: 14px; }
+  input:focus { outline: 2px solid #15803d33; border-color: #15803d; }
+  button { background: #15803d; color: #fff; border: 0; border-radius: 8px;
+           padding: 10px 18px; cursor: pointer; font-size: 14px; }
+  button.ghost { background: #f3f4f6; color: #374151; }
+  button.danger { background: #fee2e2; color: #b91c1c; padding: 6px 12px;
+                  font-size: 12px; border-radius: 6px; }
+  .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+               margin: 14px 0 18px; }
+  @media (max-width: 700px) { .form-grid { grid-template-columns: 1fr 1fr; } }
+  .badge { padding: 3px 10px; border-radius: 12px; font-size: 11.5px;
+           font-weight: 600; white-space: nowrap; }
   .READY_FOR_PICKUP { background: #fef3c7; color: #92400e; }
   .COMPLETED { background: #d1fae5; color: #065f46; }
   .CANCELLED, .FAILED { background: #fee2e2; color: #991b1b; }
   .PENDING { background: #e0e7ff; color: #3730a3; }
-  .inactive { opacity: .45; }
-  #err { color: #b91c1c; padding: 8px 0; display: none; }
+  .inactive { opacity: .4; }
+  .mono { font-family: ui-monospace, monospace; }
+  #err { color: #b91c1c; padding: 8px 0; display: none; font-size: 13px; }
+  .muted { color: #9ca3af; font-size: 12px; }
 </style>
 </head>
 <body>
 <header>
   <strong>CashGo Admin</strong>
-  <span id="keyBox">
-    <input id="key" type="password" placeholder="X-Admin-Key" size="22">
+  <span style="display:flex;gap:8px;align-items:center">
+    <input id="key" type="password" placeholder="X-Admin-Key" style="width:200px">
     <button onclick="saveKey()">Connect</button>
   </span>
 </header>
@@ -51,24 +65,27 @@
   <section>
     <h3>Corridor Fee Tiers</h3>
     <div class="form-grid">
-      <input id="f_src" placeholder="Src (US)">
-      <input id="f_dst" placeholder="Dst (NG)">
-      <input id="f_sc" placeholder="Send cur">
-      <input id="f_pc" placeholder="Payout cur">
-      <input id="f_min" type="number" placeholder="Min">
-      <input id="f_max" type="number" placeholder="Max">
-      <input id="f_flat" type="number" step="0.01" placeholder="Flat fee">
-      <input id="f_pct" type="number" step="0.0001" placeholder="Pct fee (0.015)">
-      <input id="f_mk" type="number" step="0.0001" placeholder="FX markup (0.012)">
-      <button onclick="createFee()">+ Add tier</button>
+      <div><label>Source country</label><input id="f_src" placeholder="ZA"></div>
+      <div><label>Destination</label><input id="f_dst" placeholder="ZW"></div>
+      <div><label>Send currency</label><input id="f_sc" placeholder="ZAR"></div>
+      <div><label>Payout currency</label><input id="f_pc" placeholder="ZWG"></div>
+      <div><label>Min amount</label><input id="f_min" type="number" placeholder="0"></div>
+      <div><label>Max amount</label><input id="f_max" type="number" placeholder="5000"></div>
+      <div><label>Flat fee</label><input id="f_flat" type="number" step="0.01" placeholder="10.00"></div>
+      <div><label>Percent fee (0.01 = 1%)</label><input id="f_pct" type="number" step="0.0001" placeholder="0.01"></div>
+      <div><label>FX markup (0.008 = 0.8%)</label><input id="f_mk" type="number" step="0.0001" placeholder="0.008"></div>
     </div>
-    <table id="fees"><thead><tr>
-      <th>Corridor</th><th>Tier</th><th>Flat</th><th>%</th><th>Markup</th><th>Active</th><th></th>
+    <button onclick="createFee()">+ Add tier</button>
+    <span class="muted" style="margin-left:10px">Tiers take effect on the next quote — no deploy needed.</span>
+    <table style="margin-top:18px" id="fees"><thead><tr>
+      <th>Corridor</th><th>Tier range</th><th>Flat</th><th>%</th><th>Markup</th><th>Active</th><th></th>
     </tr></thead><tbody></tbody></table>
   </section>
 
   <section>
-    <h3>Recent Transactions <button class="ghost" onclick="loadAll()">↻</button></h3>
+    <h3>Recent Transactions
+      <button class="ghost" style="float:right;padding:6px 12px" onclick="loadAll()">↻ Refresh</button>
+    </h3>
     <table id="txns"><thead><tr>
       <th>Voucher</th><th>Status</th><th>Send</th><th>Fee</th><th>Payout</th><th>Recipient</th><th>Created</th>
     </tr></thead><tbody></tbody></table>
@@ -106,24 +123,24 @@ async function loadAll() {
     const s = await req('/stats/');
     document.getElementById('stats').innerHTML = [
       ['Users', s.users], ['Transactions', s.transactions],
-      ...Object.entries(s.by_status).map(([k, v]) => [k, v]),
+      ...Object.entries(s.by_status).map(([k, v]) => [k.replaceAll('_',' '), v]),
     ].map(([l, v]) => `<div class="card"><h3>${l}</h3><div class="num">${v}</div></div>`).join('');
 
     const fees = await req('/fees/');
     document.querySelector('#fees tbody').innerHTML = fees.map(f => `
       <tr class="${f.is_active ? '' : 'inactive'}">
-        <td>${f.source_country}→${f.dest_country} ${f.send_currency}/${f.payout_currency}</td>
-        <td>${f.min_amount}–${f.max_amount}</td>
+        <td><b>${f.source_country} → ${f.dest_country}</b> <span class="mono">${f.send_currency}/${f.payout_currency}</span></td>
+        <td>${f.min_amount} – ${f.max_amount}</td>
         <td>${f.flat_fee}</td><td>${(f.percent_fee*100).toFixed(2)}%</td>
         <td>${(f.fx_margin_markup*100).toFixed(2)}%</td>
         <td>${f.is_active ? '✓' : '✗'}</td>
-        <td>${f.is_active ? `<button class="danger" onclick="deactivate('${f.id}')">Off</button>` : ''}</td>
+        <td>${f.is_active ? `<button class="danger" onclick="deactivate('${f.id}')">Deactivate</button>` : ''}</td>
       </tr>`).join('');
 
     const txns = await req('/transactions/');
     document.querySelector('#txns tbody').innerHTML = txns.map(t => `
-      <tr><td><b>${t.voucher}</b></td>
-        <td><span class="badge ${t.status}">${t.status}</span></td>
+      <tr><td><b class="mono">${t.voucher}</b></td>
+        <td><span class="badge ${t.status}">${t.status.replaceAll('_',' ')}</span></td>
         <td>${t.send}</td><td>${t.fee}</td><td>${t.payout}</td>
         <td>${t.recipient}</td><td>${new Date(t.created_at).toLocaleString()}</td>
       </tr>`).join('');
