@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -26,6 +27,7 @@ def _txn_response(txn: Transaction) -> TransactionResponse:
         exchange_rate=txn.exchange_rate, payout_amount=txn.payout_amount,
         payout_currency=txn.payout_currency, recipient_name=txn.recipient_name,
         recipient_phone=txn.recipient_phone, created_at=txn.created_at,
+        paid_out_at=txn.paid_out_at, status_history=txn.status_history or [],
     )
 
 
@@ -127,6 +129,17 @@ def create_transfer(body: TransferRequest, db: Session = Depends(get_db),
     send_payout_sms(body.recipient_phone, txn.voucher_code,
                     txn.payout_amount, txn.payout_currency, sender.full_name)
     return _txn_response(txn)
+
+
+@router.get("/transactions/", response_model=list[TransactionResponse])
+def list_transactions(db: Session = Depends(get_db),
+                      user: User = Depends(get_current_user)):
+    rows = db.execute(
+        select(Transaction)
+        .where(Transaction.sender_id == user.id)
+        .order_by(Transaction.created_at.desc())
+        .limit(100)).scalars()
+    return [_txn_response(t) for t in rows]
 
 
 @router.get("/transactions/{txn_id}", response_model=TransactionResponse)

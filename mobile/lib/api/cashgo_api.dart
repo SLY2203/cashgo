@@ -121,6 +121,12 @@ class CashGoApi {
         'payout_method': 'CASH_PICKUP',
       }), expect: 201);
 
+  Future<List<dynamic>> transactions() async {
+    final res = await _get('/remittances/transactions/');
+    if (res.statusCode != 200) throw ApiException(res.statusCode, res.body);
+    return jsonDecode(res.body) as List;
+  }
+
   // ---- Agents --------------------------------------------------------------------
   Future<List<dynamic>> nearestAgents({
     required double latitude,

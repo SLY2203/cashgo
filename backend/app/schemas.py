@@ -49,6 +49,8 @@ class TransactionResponse(BaseModel):
     recipient_name: str
     recipient_phone: str
     created_at: datetime
+    paid_out_at: Optional[datetime] = None
+    status_history: list = []
 
 
 # ---- Agents ------------------------------------------------------------------

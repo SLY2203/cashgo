@@ -15,3 +15,6 @@ mobile/.idea/
 # OS/editor
 .DS_Store
 Thumbs.db
+cashgo.apk
+cashgo-apk.zip
+*.apk
