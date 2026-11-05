@@ -41,23 +41,25 @@ if not db.execute(select(CorridorFeeConfig).limit(1)).scalar():
                           flat_fee="4.99", percent_fee="0.010", fx_margin_markup="0.010"),
     ])
 
-# --- agents -------------------------------------------------------------------
-if not db.execute(select(PickupAgent).limit(1)).scalar():
-    from geoalchemy2.elements import WKTElement
-    agents = [
-        ("Lekki CashPoint", "Lagos", "NG", 6.4478, 3.4723, ["NGN"]),
-        ("Ikeja MoneyBooth", "Lagos", "NG", 6.6018, 3.3515, ["NGN", "USD"]),
-        ("Victoria Island Kiosk", "Lagos", "NG", 6.4281, 3.4219, ["NGN"]),
-        ("Accra Osu Agent", "Accra", "GH", -0.1870, 5.6037, ["GHS"]),
-        ("Nairobi CBD Booth", "Nairobi", "KE", 36.8219, -1.2921, ["KES"]),
-    ]
-    for name, city, cc, lon, lat, currs in agents:
-        db.add(PickupAgent(
-            agent_name=name, city=city, country_code=cc,
-            supported_currencies=currs,
-            operating_hours={"mon-fri": "08:00-18:00", "sat": "09:00-15:00"},
-            location=WKTElement(f"POINT({lon} {lat})", srid=4326),
-        ))
+# --- agents (upsert by name so reseeding fixes stale coordinates) --------------
+from geoalchemy2.elements import WKTElement
+agents = [
+    ("Lekki CashPoint", "Lagos", "NG", 3.4723, 6.4478, ["NGN"]),
+    ("Ikeja MoneyBooth", "Lagos", "NG", 3.3515, 6.6018, ["NGN", "USD"]),
+    ("Victoria Island Kiosk", "Lagos", "NG", 3.4219, 6.4281, ["NGN"]),
+    ("Accra Osu Agent", "Accra", "GH", -0.1870, 5.6037, ["GHS"]),
+    ("Nairobi CBD Booth", "Nairobi", "KE", 36.8219, -1.2921, ["KES"]),
+]
+for name, city, cc, lon, lat, currs in agents:
+    existing = db.execute(
+        select(PickupAgent).where(PickupAgent.agent_name == name)).scalar_one_or_none()
+    if existing is None:
+        db.add(PickupAgent(agent_name=name, city=city, country_code=cc,
+                           supported_currencies=currs,
+                           operating_hours={"mon-fri": "08:00-18:00", "sat": "09:00-15:00"},
+                           location=WKTElement(f"POINT({lon} {lat})", srid=4326)))
+    else:
+        existing.location = WKTElement(f"POINT({lon} {lat})", srid=4326)
 
 db.commit()
 print(f"Seeded. Demo user id: {user.id}")
