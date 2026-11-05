@@ -15,13 +15,20 @@ _cache: dict[str, tuple[float, dict[str, float]]] = {}  # base -> (fetched_at, r
 # Offline fallback rates (relative to base currency) so the API works in dev
 # without network access. Key: "SRC:DST".
 _FALLBACK_RATES: dict[str, Decimal] = {
-    "USD:NGN": Decimal("1550.00"),
-    "USD:GHS": Decimal("15.20"),
-    "USD:KES": Decimal("129.00"),
-    "USD:XOF": Decimal("600.00"),
-    "GBP:NGN": Decimal("1960.00"),
-    "EUR:XOF": Decimal("655.96"),
-    "USD:USD": Decimal("1"),
+    "USD:ZMW": Decimal("27.00"),
+    "USD:TZS": Decimal("2500.00"),
+    "USD:ZAR": Decimal("18.00"),
+    "USD:ZWG": Decimal("26.50"),
+    "GBP:ZMW": Decimal("34.00"),
+    "GBP:TZS": Decimal("3150.00"),
+    "GBP:ZAR": Decimal("22.70"),
+    "GBP:ZWG": Decimal("33.50"),
+    "ZAR:ZMW": Decimal("1.50"),
+    "ZAR:ZWG": Decimal("1.47"),
+    "ZAR:TZS": Decimal("139.00"),
+    "ZMW:ZAR": Decimal("0.67"),
+    "TZS:ZAR": Decimal("0.0072"),
+    "ZWG:ZAR": Decimal("0.68"),
 }
 
 

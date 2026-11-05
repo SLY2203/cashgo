@@ -30,25 +30,58 @@ if wallet is None:
     db.flush()
     wallet_service.topup(db, wallet, Decimal("2000.00"), "Seed top-up")
 
-# --- fee tiers ----------------------------------------------------------------
-if not db.execute(select(CorridorFeeConfig).limit(1)).scalar():
-    db.add_all([
-        CorridorFeeConfig(source_country="US", dest_country="NG", send_currency="USD",
-                          payout_currency="NGN", min_amount=0, max_amount=500,
-                          flat_fee="3.99", percent_fee="0.015", fx_margin_markup="0.012"),
-        CorridorFeeConfig(source_country="US", dest_country="NG", send_currency="USD",
-                          payout_currency="NGN", min_amount=500, max_amount=5000,
-                          flat_fee="4.99", percent_fee="0.010", fx_margin_markup="0.010"),
-    ])
+# --- fee tiers: live corridors only {ZM, TZ, ZA, ZW} + US/UK senders ----------
+LIVE_DESTS = {"ZM", "TZ", "ZA", "ZW"}
+CCY = {"ZM": "ZMW", "TZ": "TZS", "ZA": "ZAR", "ZW": "ZWG",
+       "US": "USD", "GB": "GBP"}
+SOURCES = ["US", "GB", "ZM", "TZ", "ZA", "ZW"]
+
+# deactivate any seeded corridor outside the live footprint
+for cfg in db.execute(select(CorridorFeeConfig)).scalars():
+    if cfg.dest_country not in LIVE_DESTS:
+        cfg.is_active = False
+
+def tier(src, dst, lo, hi, flat, pct, mk):
+    exists = db.execute(select(CorridorFeeConfig).where(
+        CorridorFeeConfig.source_country == src,
+        CorridorFeeConfig.dest_country == dst,
+        CorridorFeeConfig.send_currency == CCY[src],
+        CorridorFeeConfig.payout_currency == CCY[dst],
+        CorridorFeeConfig.min_amount == lo)).scalar_one_or_none()
+    if exists is None:
+        db.add(CorridorFeeConfig(
+            source_country=src, dest_country=dst,
+            send_currency=CCY[src], payout_currency=CCY[dst],
+            min_amount=lo, max_amount=hi,
+            flat_fee=flat, percent_fee=pct, fx_margin_markup=mk, is_active=True))
+
+for dst in sorted(LIVE_DESTS):
+    for src in ("US", "GB"):
+        tier(src, dst, 0, 1000, "4.99", "0.015", "0.012")
+        tier(src, dst, 1000, 10000, "6.99", "0.010", "0.010")
+    for src in ("ZM", "TZ", "ZA", "ZW"):
+        if src != dst:
+            tier(src, dst, 0, 5000, "10.00", "0.010", "0.008")
 
 # --- agents (upsert by name so reseeding fixes stale coordinates) --------------
 from geoalchemy2.elements import WKTElement
+
+for a in db.execute(select(PickupAgent)).scalars():
+    if a.country_code not in LIVE_DESTS:
+        a.is_active = False
 agents = [
-    ("Lekki CashPoint", "Lagos", "NG", 3.4723, 6.4478, ["NGN"]),
-    ("Ikeja MoneyBooth", "Lagos", "NG", 3.3515, 6.6018, ["NGN", "USD"]),
-    ("Victoria Island Kiosk", "Lagos", "NG", 3.4219, 6.4281, ["NGN"]),
-    ("Accra Osu Agent", "Accra", "GH", -0.1870, 5.6037, ["GHS"]),
-    ("Nairobi CBD Booth", "Nairobi", "KE", 36.8219, -1.2921, ["KES"]),
+    # Zambia
+    ("Lusaka Cairo Rd Booth", "Lusaka", "ZM", 28.2830, -15.4167, ["ZMW"]),
+    ("Kitwe Copperbelt Agent", "Kitwe", "ZM", 28.2130, -12.8024, ["ZMW"]),
+    # Tanzania
+    ("Dar es Salaam Kariakoo", "Dar es Salaam", "TZ", 39.2722, -6.8235, ["TZS"]),
+    ("Arusha Clock Tower Booth", "Arusha", "TZ", 36.6828, -3.3869, ["TZS"]),
+    # South Africa
+    ("Joburg CBD CashPoint", "Johannesburg", "ZA", 28.0473, -26.2041, ["ZAR"]),
+    ("Cape Town Long St Kiosk", "Cape Town", "ZA", 18.4099, -33.9217, ["ZAR"]),
+    # Zimbabwe
+    ("Harare CBD Agent", "Harare", "ZW", 31.0535, -17.8252, ["ZWG", "USD"]),
+    ("Bulawayo Main St Booth", "Bulawayo", "ZW", 28.5823, -20.1486, ["ZWG"]),
 ]
 for name, city, cc, lon, lat, currs in agents:
     existing = db.execute(

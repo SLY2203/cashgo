@@ -16,10 +16,18 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
   final _nameCtrl = TextEditingController();
 
   static const corridors = {
-    'US → Nigeria': ('US', 'NG', 'USD', 'NGN'),
-    'US → Ghana': ('US', 'GH', 'USD', 'GHS'),
-    'US → Kenya': ('US', 'KE', 'USD', 'KES'),
-    'UK → Nigeria': ('GB', 'NG', 'GBP', 'NGN'),
+    'USA → Zambia': ('US', 'ZM', 'USD', 'ZMW'),
+    'USA → Tanzania': ('US', 'TZ', 'USD', 'TZS'),
+    'USA → South Africa': ('US', 'ZA', 'USD', 'ZAR'),
+    'USA → Zimbabwe': ('US', 'ZW', 'USD', 'ZWG'),
+    'UK → South Africa': ('GB', 'ZA', 'GBP', 'ZAR'),
+    'UK → Zimbabwe': ('GB', 'ZW', 'GBP', 'ZWG'),
+    'S. Africa → Zimbabwe': ('ZA', 'ZW', 'ZAR', 'ZWG'),
+    'S. Africa → Zambia': ('ZA', 'ZM', 'ZAR', 'ZMW'),
+    'S. Africa → Tanzania': ('ZA', 'TZ', 'ZAR', 'TZS'),
+    'Zambia → S. Africa': ('ZM', 'ZA', 'ZMW', 'ZAR'),
+    'Zimbabwe → S. Africa': ('ZW', 'ZA', 'ZWG', 'ZAR'),
+    'Tanzania → S. Africa': ('TZ', 'ZA', 'TZS', 'ZAR'),
   };
   String _corridor = corridors.keys.first;
 

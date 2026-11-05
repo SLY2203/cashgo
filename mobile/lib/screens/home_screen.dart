@@ -61,7 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
-                  builder: (_) => const AgentsMapScreen(destCountry: 'NG')),
+                  builder: (_) => const AgentsMapScreen(destCountry: 'ZA')),
             ),
           ),
           IconButton(
