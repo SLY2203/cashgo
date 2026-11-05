@@ -83,7 +83,10 @@ class _HomeScreenState extends State<HomeScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _BalanceCard(wallets: _wallets, loading: _loading),
+            _BalanceCard(
+                wallets: _wallets,
+                loading: _loading,
+                onTopup: _refresh),
             const SizedBox(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -113,7 +116,9 @@ class _HomeScreenState extends State<HomeScreen> {
 class _BalanceCard extends StatelessWidget {
   final List<dynamic> wallets;
   final bool loading;
-  const _BalanceCard({required this.wallets, required this.loading});
+  final VoidCallback onTopup;
+  const _BalanceCard({required this.wallets, required this.loading,
+                      required this.onTopup});
 
   @override
   Widget build(BuildContext context) {
@@ -159,8 +164,105 @@ class _BalanceCard extends StatelessWidget {
                   ],
                 ),
               ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white54)),
+              icon: const Icon(Icons.add_card),
+              label: const Text('Add funds'),
+              onPressed: () => showDialog(
+                context: context,
+                builder: (_) => TopupDialog(onDone: onTopup),
+              ),
+            ),
+          ),
         ],
       ),
+    );
+  }
+}
+
+/// Dev top-up dialog — swap for Paystack/Flutterwave card capture in prod.
+class TopupDialog extends StatefulWidget {
+  final VoidCallback onDone;
+  const TopupDialog({super.key, required this.onDone});
+
+  @override
+  State<TopupDialog> createState() => _TopupDialogState();
+}
+
+class _TopupDialogState extends State<TopupDialog> {
+  final _amount = TextEditingController();
+  String _ccy = 'USD';
+  bool _busy = false;
+  String? _error;
+
+  static const _ccys = ['USD', 'GBP', 'ZMW', 'TZS', 'ZAR', 'ZWG'];
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add funds'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DropdownButtonFormField<String>(
+            value: _ccy,
+            decoration: const InputDecoration(labelText: 'Currency'),
+            items: _ccys
+                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                .toList(),
+            onChanged: (v) => setState(() => _ccy = v!),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _amount,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Amount'),
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(_error!,
+                  style: const TextStyle(color: Colors.red, fontSize: 12)),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _busy
+              ? null
+              : () async {
+                  final amt = double.tryParse(_amount.text) ?? 0;
+                  if (amt <= 0) {
+                    setState(() => _error = 'Enter an amount');
+                    return;
+                  }
+                  setState(() => _busy = true);
+                  try {
+                    await context
+                        .read<CashGoApi>()
+                        .topup(_ccy, amt);
+                    widget.onDone();
+                    if (context.mounted) Navigator.pop(context);
+                  } on ApiException catch (e) {
+                    setState(() {
+                      _busy = false;
+                      _error = e.toString();
+                    });
+                  }
+                },
+          child: const Text('Top up'),
+        ),
+      ],
     );
   }
 }
