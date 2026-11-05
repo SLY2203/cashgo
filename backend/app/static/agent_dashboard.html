@@ -40,6 +40,7 @@
   <div class="tabs">
     <button id="tab-w" class="active" onclick="showTab('w')">Cash Withdrawal</button>
     <button id="tab-t" onclick="showTab('t')">Account Top-up</button>
+    <button id="tab-h" onclick="showTab('h');loadHistory()">My Transactions</button>
   </div>
 
   <!-- withdrawal -->
@@ -66,6 +67,12 @@
     <input id="tamt" type="number" step="0.01">
     <button onclick="cashIn()">Credit client wallet</button>
     <div class="result" id="tres"></div>
+  </div>
+
+  <!-- history -->
+  <div class="card" id="pane-h" style="display:none">
+    <button class="ghost" style="background:#e5e7eb;color:#333;width:auto;margin:0 0 10px;padding:6px 12px" onclick="loadHistory()">↻ Refresh</button>
+    <div id="hist"><i style="color:#888">Load to see your withdrawals & top-ups…</i></div>
   </div>
 </main>
 <script>
@@ -109,8 +116,9 @@ async function loadAgents() {
 function showTab(t) {
   document.getElementById('pane-w').style.display = t==='w' ? '' : 'none';
   document.getElementById('pane-t').style.display = t==='t' ? '' : 'none';
-  document.getElementById('tab-w').className = t==='w' ? 'active' : '';
-  document.getElementById('tab-t').className = t==='t' ? 'active' : '';
+  document.getElementById('pane-h').style.display = t==='h' ? '' : 'none';
+  for (const k of ['w','t','h'])
+    document.getElementById('tab-'+k).className = t===k ? 'active' : '';
 }
 
 function show(el, ok, html) {
@@ -156,8 +164,28 @@ async function cashIn() {
     })});
     show('tres', true,
       `Credited <b>${r.credited} ${r.currency}</b> to ${r.client}.<br>
-       New balance: <b>${r.new_balance} ${r.currency}</b>`);
+       New balance: <b>${r.new_balance} ${r.currency}</b><br>
+       Receipt code: <b style="font-size:18px">${r.reference}</b>`);
   } catch (e) { show('tres', false, e.message); }
+}
+
+async function loadHistory() {
+  if (!AGENT_ID) return;
+  const h = document.getElementById('hist');
+  try {
+    const d = await req('/history/?agent_id=' + AGENT_ID);
+    const wrows = d.withdrawals.map(w =>
+      `<tr><td><b>${w.voucher}</b></td><td>${w.amount}</td><td>${w.recipient}</td>
+       <td>${w.paid_at ? new Date(w.paid_at).toLocaleString() : ''}</td></tr>`).join('');
+    const trows = d.topups.map(t =>
+      `<tr><td><b>${t.reference}</b></td><td>${t.amount}</td><td>${t.client}</td>
+       <td>${new Date(t.at).toLocaleString()}</td></tr>`).join('');
+    h.innerHTML = `
+      <h4 style="margin:4px 0">Withdrawals paid (${d.withdrawals.length})</h4>
+      <table><tr><th>Voucher</th><th>Paid</th><th>To</th><th>When</th></tr>${wrows || '<tr><td colspan=4>None yet</td></tr>'}</table>
+      <h4 style="margin:14px 0 4px">Top-ups processed (${d.topups.length})</h4>
+      <table><tr><th>Receipt</th><th>Amount</th><th>Client</th><th>When</th></tr>${trows || '<tr><td colspan=4>None yet</td></tr>'}</table>`;
+  } catch (e) { h.innerHTML = `<div class="result bad" style="display:block">${e.message}</div>`; }
 }
 
 if (KEY) loadAgents();

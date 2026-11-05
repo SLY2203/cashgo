@@ -19,9 +19,10 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import require_agent
-from app.models import PickupAgent, Transaction, TxnStatus, User, Wallet
+from app.models import (PaymentIntent, PickupAgent, Transaction, TxnStatus,
+                        User, Wallet)
 from app.services import wallets as wallet_service
-from app.services.messaging import _send_sms
+from app.services.messaging import _send_sms, generate_voucher_code
 
 router = APIRouter(prefix="/agent", tags=["agent"],
                    dependencies=[Depends(require_agent)])
@@ -123,16 +124,60 @@ def cash_in(body: CashInRequest, db: Session = Depends(get_db)):
         db.flush()
     wallet_service.topup(db, wallet, body.amount,
                          f"Agent cash-in @ {agent.agent_name}")
+
+    # receipt code for the agent's records
+    receipt = generate_voucher_code().replace("CG", "CI", 1)
+    db.add(PaymentIntent(
+        user_id=client.id, wallet_id=wallet.id, agent_id=agent.id,
+        reference=receipt, currency=body.currency.upper(),
+        amount=body.amount, provider="agent_cash_in", status="PAID",
+        paid_at=datetime.now(timezone.utc)))
     db.commit()
 
     _send_sms(client.phone,
               f"CashGo: {body.amount} {body.currency.upper()} credited "
               f"by {agent.agent_name}, {agent.city}. "
-              f"New balance: {wallet.balance} {wallet.currency}.")
+              f"Ref {receipt}. Balance: {wallet.balance} {wallet.currency}.")
 
-    return {"credited": str(body.amount), "currency": body.currency.upper(),
-            "client": client.full_name, "new_balance": str(wallet.balance),
-            "agent": agent.agent_name}
+    return {"reference": receipt, "credited": str(body.amount),
+            "currency": body.currency.upper(), "client": client.full_name,
+            "new_balance": str(wallet.balance), "agent": agent.agent_name}
+
+
+@router.get("/history/")
+def agent_history(agent_id: UUID, db: Session = Depends(get_db)):
+    """The booth's book: withdrawals paid out + cash-ins processed."""
+    agent = db.get(PickupAgent, agent_id)
+    if agent is None:
+        raise HTTPException(404, "Agent not found")
+
+    withdrawals = db.execute(
+        select(Transaction)
+        .where(Transaction.pickup_agent_id == agent.id)
+        .order_by(Transaction.paid_out_at.desc()).limit(100)).scalars()
+
+    topups = db.execute(
+        select(PaymentIntent, User)
+        .join(User, PaymentIntent.user_id == User.id)
+        .where(PaymentIntent.agent_id == agent.id,
+               PaymentIntent.provider == "agent_cash_in")
+        .order_by(PaymentIntent.created_at.desc()).limit(100)).all()
+
+    return {
+        "agent": agent.agent_name,
+        "withdrawals": [{
+            "voucher": t.voucher_code,
+            "amount": f"{t.payout_amount} {t.payout_currency}",
+            "recipient": t.recipient_name,
+            "paid_at": t.paid_out_at.isoformat() if t.paid_out_at else None,
+        } for t in withdrawals],
+        "topups": [{
+            "reference": i.reference,
+            "amount": f"{i.amount} {i.currency}",
+            "client": u.full_name, "phone": u.phone,
+            "at": i.created_at.isoformat(),
+        } for i, u in topups],
+    }
 
 
 # ---- dashboard page (unprotected shell; API calls need the agent key) --------

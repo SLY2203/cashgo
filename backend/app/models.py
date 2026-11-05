@@ -173,6 +173,7 @@ class PaymentIntent(Base):
     currency: Mapped[str] = mapped_column(String(3))
     amount: Mapped[float] = mapped_column(Numeric(18, 4))
     provider: Mapped[str] = mapped_column(String(24), default="paystack")
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("pickup_agents.id"))
     status: Mapped[str] = mapped_column(String(16), default="INITIATED")
     payment_url: Mapped[str | None] = mapped_column(Text)
     paid_at: Mapped[datetime | None] = mapped_column(TIMESTAMP(timezone=True))
