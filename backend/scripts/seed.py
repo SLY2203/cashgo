@@ -22,13 +22,14 @@ if user is None:
     db.add(user)
     db.flush()
 
-wallet = db.execute(select(Wallet).where(Wallet.user_id == user.id,
-                                         Wallet.currency == "USD")).scalar_one_or_none()
-if wallet is None:
-    wallet = Wallet(user_id=user.id, currency="USD")
-    db.add(wallet)
-    db.flush()
-    wallet_service.topup(db, wallet, Decimal("2000.00"), "Seed top-up")
+for ccy, amt in (("USD", "2000.00"), ("ZAR", "10000.00"), ("ZWG", "5000.00")):
+    wallet = db.execute(select(Wallet).where(
+        Wallet.user_id == user.id, Wallet.currency == ccy)).scalar_one_or_none()
+    if wallet is None:
+        wallet = Wallet(user_id=user.id, currency=ccy)
+        db.add(wallet)
+        db.flush()
+        wallet_service.topup(db, wallet, Decimal(amt), "Seed top-up")
 
 # --- fee tiers: live corridors only {ZM, TZ, ZA, ZW} + US/UK senders ----------
 LIVE_DESTS = {"ZM", "TZ", "ZA", "ZW"}
@@ -36,9 +37,9 @@ CCY = {"ZM": "ZMW", "TZ": "TZS", "ZA": "ZAR", "ZW": "ZWG",
        "US": "USD", "GB": "GBP"}
 SOURCES = ["US", "GB", "ZM", "TZ", "ZA", "ZW"]
 
-# deactivate any seeded corridor outside the live footprint
+# deactivate corridors outside the live footprint or from removed senders
 for cfg in db.execute(select(CorridorFeeConfig)).scalars():
-    if cfg.dest_country not in LIVE_DESTS:
+    if cfg.dest_country not in LIVE_DESTS or cfg.source_country in ("US", "GB"):
         cfg.is_active = False
 
 # payout currencies offered per destination — receiver's choice
@@ -61,9 +62,6 @@ def tier(src, dst, payout_ccy, lo, hi, flat, pct, mk):
 
 for dst, payouts in PAYOUTS.items():
     for pc in payouts:
-        for src in ("US", "GB"):
-            tier(src, dst, pc, 0, 1000, "4.99", "0.015", "0.012")
-            tier(src, dst, pc, 1000, 10000, "6.99", "0.010", "0.010")
         for src in ("ZM", "TZ", "ZA", "ZW"):
             if src != dst:
                 tier(src, dst, pc, 0, 5000, "10.00", "0.010", "0.008")
