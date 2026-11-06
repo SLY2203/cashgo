@@ -217,26 +217,40 @@ class _QuoteCard extends StatelessWidget {
     final expiry = DateTime.parse(quote['expires_at']);
     final secsLeft = expiry.difference(DateTime.now()).inSeconds;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _row('Fee', money(quote['fee_amount'], quote['send_currency'])),
-            _row('Total debit',
-                money(quote['total_debit'], quote['send_currency'])),
-            _row('Rate',
-                '1 ${quote['send_currency']} = ${double.parse(quote['applied_rate'].toString()).toStringAsFixed(4)} ${quote['payout_currency']}'),
-            const Divider(),
-            _row('Recipient gets',
-                money(quote['payout_amount'], quote['payout_currency']),
-                bold: true),
-            const SizedBox(height: 6),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F766E).withOpacity(.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF99E5DD)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('RECIPIENT GETS',
+              style: TextStyle(color: Colors.teal.shade700, fontSize: 11,
+                  fontWeight: FontWeight.w700, letterSpacing: 1.2)),
+          const SizedBox(height: 4),
+          Text(money(quote['payout_amount'], quote['payout_currency']),
+              style: const TextStyle(fontSize: 30,
+                  fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+          const Divider(height: 24),
+          _row('Fee', money(quote['fee_amount'], quote['send_currency'])),
+          _row('Total debit',
+              money(quote['total_debit'], quote['send_currency'])),
+          _row('Rate',
+              '1 ${quote['send_currency']} = ${double.parse(quote['applied_rate'].toString()).toStringAsFixed(4)} ${quote['payout_currency']}'),
+          const SizedBox(height: 8),
+          Row(children: [
+            const Icon(Icons.lock_clock, size: 14,
+                color: Color(0xFFD97706)),
+            const SizedBox(width: 4),
             Text('Rate locked for ${secsLeft.clamp(0, 60)}s',
-                style: Theme.of(context).textTheme.bodySmall),
-          ],
-        ),
+                style: const TextStyle(
+                    color: Color(0xFFD97706), fontSize: 12,
+                    fontWeight: FontWeight.w600)),
+          ]),
+        ],
       ),
     );
   }

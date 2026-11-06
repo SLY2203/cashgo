@@ -83,6 +83,9 @@ class CashGoApi {
     return jsonDecode(res.body);
   }
 
+  Future<Map<String, dynamic>> me() async =>
+      _json(await _get('/auth/me/'));
+
   // ---- Wallets ----------------------------------------------------------------
   Future<List<dynamic>> wallets() async {
     final res = await _get('/wallets/');

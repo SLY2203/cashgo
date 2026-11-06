@@ -12,7 +12,12 @@ class AuthState extends ChangeNotifier {
 
   String? userId;
   String? kycStatus;
+  Map<String, dynamic>? me;
   bool get isLoggedIn => userId != null;
+
+  Future<void> loadMe() async {
+    try { me = await api.me(); notifyListeners(); } catch (_) {}
+  }
 
   bool busy = false;
   String? error;

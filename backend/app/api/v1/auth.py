@@ -54,6 +54,13 @@ def otp_verify(body: OtpVerifyRequest, db: Session = Depends(get_db)):
                          user_id=user.id, kyc_status=user.kyc_status.value)
 
 
+@router.get("/me/")
+def me(user: User = Depends(get_current_user)):
+    return {"id": str(user.id), "phone": user.phone,
+            "full_name": user.full_name, "country_code": user.country_code,
+            "kyc_status": user.kyc_status.value}
+
+
 @router.post("/kyc/")
 def submit_kyc(body: KycSubmitRequest,
                user: User = Depends(get_current_user),
