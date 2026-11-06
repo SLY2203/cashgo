@@ -157,6 +157,12 @@ class CashGoApi {
     return jsonDecode(res.body) as List;
   }
 
+  Future<Map<String, dynamic>> p2p(
+          String phone, String currency, double amount) async =>
+      _json(await _post('/remittances/transfers/p2p/',
+          {'recipient_phone': phone, 'currency': currency, 'amount': amount}),
+          expect: 201);
+
   // ---- QR scans (agent-initiated) ------------------------------------------------
   /// p = decoded QR payload (includes ts + sig from the signed token)
   Future<Map<String, dynamic>> scanCashin(Map<String, dynamic> p) async =>

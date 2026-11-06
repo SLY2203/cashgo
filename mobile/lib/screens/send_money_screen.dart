@@ -175,6 +175,14 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
                 labelText: 'Recipient phone (E.164)'),
           ),
           const SizedBox(height: 20),
+          TextButton(
+            onPressed: () => showDialog(
+                context: context,
+                builder: (_) => const _P2pDialog()),
+            child: const Text(
+                'Recipient uses the app? Send wallet-to-wallet →',
+                style: TextStyle(color: Color(0xFF0F766E))),
+          ),
           FilledButton.icon(
             icon: const Icon(Icons.send),
             label: const Text('Send now'),
@@ -201,6 +209,102 @@ class _SendMoneyScreenState extends State<SendMoneyScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Instant wallet→wallet send to another CashGo user (fee-free, no agent).
+class _P2pDialog extends StatefulWidget {
+  const _P2pDialog();
+
+  @override
+  State<_P2pDialog> createState() => _P2pDialogState();
+}
+
+class _P2pDialogState extends State<_P2pDialog> {
+  final _phone = TextEditingController();
+  final _amount = TextEditingController();
+  String _ccy = 'ZAR';
+  bool _busy = false;
+  String? _error;
+  Map<String, dynamic>? _done;
+
+  static const _ccys = ['ZAR', 'ZWG', 'ZMW', 'TZS', 'USD'];
+
+  @override
+  Widget build(BuildContext context) {
+    if (_done != null) {
+      return AlertDialog(
+        title: const Text('Sent instantly'),
+        content: Text('${_done!['amount']} → ${_done!['to']}\n'
+            'Your balance: ${_done!['new_balance']} $_ccy'),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Done'),
+          ),
+        ],
+      );
+    }
+    return AlertDialog(
+      title: const Text('Send to CashGo wallet'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _phone,
+            keyboardType: TextInputType.phone,
+            decoration: const InputDecoration(
+                labelText: 'Recipient phone (E.164)'),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: _ccy,
+            decoration: const InputDecoration(labelText: 'Currency'),
+            items: _ccys
+                .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                .toList(),
+            onChanged: (v) => setState(() => _ccy = v!),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _amount,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Amount'),
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(_error!,
+                  style: const TextStyle(color: Colors.red, fontSize: 12)),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _busy ? null : () async {
+            final amt = double.tryParse(_amount.text) ?? 0;
+            if (amt <= 0 || _phone.text.trim().isEmpty) {
+              setState(() => _error = 'Phone + amount required');
+              return;
+            }
+            setState(() => _busy = true);
+            try {
+              final res = await context.read<CashGoApi>()
+                  .p2p(_phone.text.trim(), _ccy, amt);
+              setState(() => _done = res);
+            } on ApiException catch (e) {
+              setState(() { _busy = false; _error = e.toString(); });
+            }
+          },
+          child: const Text('Send'),
+        ),
+      ],
     );
   }
 }

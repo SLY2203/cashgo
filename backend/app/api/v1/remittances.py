@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -9,12 +10,13 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.models import (FxQuote, KycStatus, PayoutMethod, Transaction,
-                        TxnStatus, User)
+                        TxnStatus, User, Wallet)
 from app.schemas import (QuoteRequest, QuoteResponse, TransactionResponse,
                          TransferRequest)
 from app.services import fees as fee_service
 from app.services import wallets as wallet_service
-from app.services.messaging import generate_voucher_code, send_payout_sms
+from app.services.messaging import (generate_voucher_code, send_payout_sms,
+                                    _send_sms)
 
 router = APIRouter(prefix="/remittances", tags=["remittances"])
 
@@ -161,12 +163,81 @@ def create_transfer(body: TransferRequest, response: Response,
     txn.status_history = txn.status_history + [{
         "status": TxnStatus.READY_FOR_PICKUP.value,
         "at": datetime.now(timezone.utc).isoformat()}]
+    wallet_service.audit(db, "TRANSFER", actor=sender.id, ref=txn.voucher_code,
+                         detail={"send": f"{txn.send_amount} {txn.send_currency}",
+                                 "payout": f"{txn.payout_amount} {txn.payout_currency}",
+                                 "to": txn.recipient_phone})
     db.commit()
     db.refresh(txn)
 
     send_payout_sms(body.recipient_phone, txn.voucher_code,
                     txn.payout_amount, txn.payout_currency, sender.full_name)
     return _txn_response(txn)
+
+
+class P2PRequest(BaseModel):
+    recipient_phone: str = Field(min_length=7, max_length=20)
+    currency: str = Field(min_length=3, max_length=3)
+    amount: Decimal = Field(gt=0, le=Decimal("100000"))
+
+
+@router.post("/transfers/p2p/", status_code=201)
+def p2p_transfer(body: P2PRequest, db: Session = Depends(get_db),
+                 sender: User = Depends(get_current_user)):
+    """Client → client wallet send: instant, fee-free, no agent needed."""
+    if sender.kyc_status != KycStatus.VERIFIED:
+        raise HTTPException(403, "KYC verification required before sending")
+
+    recipient = db.execute(
+        select(User).where(User.phone == body.recipient_phone)).scalar_one_or_none()
+    if recipient is None:
+        raise HTTPException(404, "Recipient has no CashGo account")
+    if recipient.id == sender.id:
+        raise HTTPException(400, "Cannot send to yourself")
+
+    ccy = body.currency.upper()
+    swallet = wallet_service.get_wallet(db, sender.id, ccy)
+    if swallet is None:
+        raise HTTPException(402, f"No {ccy} wallet — top up first")
+
+    rwallet = wallet_service.get_wallet(db, recipient.id, ccy)
+    if rwallet is None:
+        rwallet = Wallet(user_id=recipient.id, currency=ccy)
+        db.add(rwallet)
+        db.flush()
+
+    now = datetime.now(timezone.utc)
+    txn = Transaction(
+        sender_id=sender.id,
+        source_country=sender.country_code, dest_country=recipient.country_code,
+        send_currency=ccy, payout_currency=ccy,
+        send_amount=body.amount, fee_amount=0,
+        exchange_rate=Decimal("1"), applied_rate=Decimal("1"),
+        payout_amount=body.amount,
+        recipient_phone=recipient.phone,
+        recipient_name=recipient.full_name,
+        payout_method="WALLET",
+        voucher_code=generate_voucher_code().replace("CG", "P2", 1),
+        status=TxnStatus.COMPLETED,
+        paid_out_at=now,
+        status_history=[{"status": "COMPLETED", "at": now.isoformat(),
+                         "via": "p2p"}],
+    )
+    db.add(txn)
+    db.flush()
+    wallet_service.transfer_internal(db, swallet, rwallet, body.amount, txn)
+    wallet_service.audit(db, "P2P", actor=sender.id, ref=txn.voucher_code,
+                         detail={"amount": str(body.amount), "ccy": ccy,
+                                 "to": str(recipient.id)})
+    db.commit()
+
+    _send_sms(recipient.phone,
+              f"CashGo: {body.amount} {ccy} received from {sender.full_name}. "
+              f"Balance: {rwallet.balance} {ccy}.")
+
+    return {"transaction_id": str(txn.id), "status": "COMPLETED",
+            "amount": f"{body.amount} {ccy}", "to": recipient.full_name,
+            "new_balance": str(swallet.balance)}
 
 
 @router.get("/transactions/", response_model=list[TransactionResponse])

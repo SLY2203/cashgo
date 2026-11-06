@@ -19,8 +19,8 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import require_agent
-from app.models import (PaymentIntent, PickupAgent, Transaction, TxnStatus,
-                        User, Wallet)
+from app.models import (AgentFloat, PaymentIntent, PickupAgent, Transaction,
+                        TxnStatus, User, Wallet)
 from app.services import wallets as wallet_service
 from app.services.messaging import _send_sms, generate_voucher_code
 
@@ -85,6 +85,14 @@ def redeem_voucher(code: str, agent_id: UUID, db: Session = Depends(get_db)):
     txn.status_history = txn.status_history + [{
         "status": TxnStatus.COMPLETED.value,
         "at": txn.paid_out_at.isoformat(), "agent": agent.agent_name}]
+    wallet_service.float_adjust(
+        db, agent.id, txn.payout_currency, -Decimal(str(txn.payout_amount)),
+        f"Payout {txn.voucher_code}")
+    wallet_service.audit(db, "REDEEM", actor=agent.id,
+                         ref=txn.voucher_code,
+                         detail={"amount": str(txn.payout_amount),
+                                 "ccy": txn.payout_currency,
+                                 "recipient": txn.recipient_phone})
     db.commit()
 
     _send_sms(txn.recipient_phone,
@@ -132,6 +140,12 @@ def cash_in(body: CashInRequest, db: Session = Depends(get_db)):
         reference=receipt, currency=body.currency.upper(),
         amount=body.amount, provider="agent_cash_in", status="PAID",
         paid_at=datetime.now(timezone.utc)))
+    wallet_service.float_adjust(db, agent.id, body.currency, body.amount,
+                                f"Cash-in {receipt}")
+    wallet_service.audit(db, "CASH_IN", actor=agent.id, ref=receipt,
+                         detail={"amount": str(body.amount),
+                                 "ccy": body.currency.upper(),
+                                 "client": str(client.id)})
     db.commit()
 
     _send_sms(client.phone,
@@ -198,6 +212,11 @@ def agent_history(agent_id: UUID, db: Session = Depends(get_db)):
             "client": u.full_name, "phone": u.phone,
             "at": i.created_at.isoformat(),
         } for i, u in topups],
+        "floats": [
+            {"currency": f.currency, "balance": str(f.balance)}
+            for f in db.execute(
+                select(AgentFloat)
+                .where(AgentFloat.agent_id == agent.id)).scalars()],
     }
 
 

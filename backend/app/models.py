@@ -180,6 +180,29 @@ class PaymentIntent(Base):
     created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
 
 
+class AgentFloat(Base):
+    __tablename__ = "agent_floats"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    agent_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("pickup_agents.id"))
+    currency: Mapped[str] = mapped_column(String(3))
+    balance: Mapped[float] = mapped_column(Numeric(18, 4), default=0)
+
+    __table_args__ = (UniqueConstraint("agent_id", "currency"),)
+
+
+class AuditEvent(Base):
+    __tablename__ = "audit_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    actor: Mapped[str | None] = mapped_column(String(40))
+    action: Mapped[str] = mapped_column(String(40))
+    ref: Mapped[str | None] = mapped_column(String(80))
+    detail: Mapped[dict] = mapped_column(JSONB, default=dict)
+    ip: Mapped[str | None] = mapped_column(String(45))
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
+
+
 class LedgerEntry(Base):
     __tablename__ = "ledger_entries"
 

@@ -64,6 +64,12 @@ def scan_cashin(body: ScanRequest, user: User = Depends(get_current_user),
         reference=receipt, currency=body.currency.upper(),
         amount=body.amount, provider="agent_cash_in", status="PAID",
         paid_at=datetime.now(timezone.utc)))
+    wallet_service.float_adjust(db, agent.id, body.currency, body.amount,
+                                f"QR cash-in {receipt}")
+    wallet_service.audit(db, "CASH_IN", actor=agent.id, ref=receipt,
+                         detail={"amount": str(body.amount),
+                                 "ccy": body.currency.upper(),
+                                 "client": str(user.id), "via": "qr"})
     db.commit()
 
     return {"reference": receipt, "credited": str(body.amount),
@@ -105,6 +111,13 @@ def scan_cashout(body: ScanRequest, user: User = Depends(get_current_user),
         "status": TxnStatus.COMPLETED.value,
         "at": txn.paid_out_at.isoformat(),
         "agent": agent.agent_name, "via": "qr"}]
+    wallet_service.float_adjust(
+        db, agent.id, txn.payout_currency, -Decimal(str(txn.payout_amount)),
+        f"QR payout {txn.voucher_code}")
+    wallet_service.audit(db, "REDEEM", actor=agent.id,
+                         ref=txn.voucher_code,
+                         detail={"amount": str(txn.payout_amount),
+                                 "ccy": txn.payout_currency, "via": "qr"})
     db.commit()
 
     _send_sms(txn.recipient_phone,

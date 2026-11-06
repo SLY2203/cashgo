@@ -212,7 +212,10 @@ async function loadHistory() {
     const trows = d.topups.map(t =>
       `<tr><td><b>${t.reference}</b></td><td>${t.amount}</td><td>${t.client}</td>
        <td>${new Date(t.at).toLocaleString()}</td></tr>`).join('');
+    const floats = (d.floats || []).map(f =>
+      `<span style="background:#0f766e;color:#fff;border-radius:10px;padding:4px 10px;font-size:12px;font-weight:600">${f.balance} ${f.currency}</span>`).join(' ');
     h.innerHTML = `
+      <div style="margin-bottom:12px"><b>My float:</b> ${floats || '—'}</div>
       <h4 style="margin:4px 0">Withdrawals paid (${d.withdrawals.length})</h4>
       <table><tr><th>Voucher</th><th>Paid</th><th>To</th><th>When</th></tr>${wrows || '<tr><td colspan=4>None yet</td></tr>'}</table>
       <h4 style="margin:14px 0 4px">Top-ups processed (${d.topups.length})</h4>

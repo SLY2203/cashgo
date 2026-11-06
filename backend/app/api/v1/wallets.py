@@ -49,6 +49,10 @@ def topup(body: TopupRequest, user: User = Depends(get_current_user),
         intent.paid_at = payments.mark_paid()
         wallet_service.topup(db, wallet, Decimal(str(body.amount)),
                              f"Dev top-up {ref}")
+        wallet_service.audit(db, "TOPUP", actor=user.id, ref=ref,
+                             detail={"amount": str(body.amount),
+                                     "ccy": body.currency.upper(),
+                                     "via": "dev"})
     db.add(intent)
     db.commit()
 
