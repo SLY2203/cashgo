@@ -186,17 +186,17 @@ async function cashIn() {
   } catch (e) { show('tres', false, e.message); }
 }
 
-function genQr(kind) {
+async function genQr(kind) {
   const amt = parseFloat(document.getElementById('qamt_'+kind).value);
   const ccy = document.getElementById('qccy_'+kind).value;
   const box = document.getElementById('qr-'+kind);
   if (!amt || amt <= 0 || !AGENT_ID) { alert('Enter amount and select your booth'); return; }
-  const payload = JSON.stringify({
+  const res = await req('/qr-token/', {method: 'POST', body: JSON.stringify({
     op: kind === 'w' ? 'cashout' : 'cashin',
-    agent_id: AGENT_ID, amount: amt, currency: ccy });
+    agent_id: AGENT_ID, amount: amt, currency: ccy })});
   box.innerHTML = '';
   box.style.display = 'block';
-  new QRCode(box, { text: payload, width: 200, height: 200 });
+  new QRCode(box, { text: res.payload, width: 200, height: 200 });
   box.insertAdjacentHTML('beforeend',
     `<p style="color:#0f766e;font-weight:600">${amt} ${ccy} — client scans with CashGo app</p>`);
 }

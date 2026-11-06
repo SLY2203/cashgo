@@ -58,6 +58,42 @@ def verify_otp(db: Session, phone: str, code: str, purpose: str) -> None:
     db.commit()
 
 
+def _qr_signature(payload_without_sig: dict) -> str:
+    import json as _json
+    canonical = _json.dumps(payload_without_sig, sort_keys=True,
+                            separators=(",", ":"))
+    return hashlib.sha256(
+        f"{settings.JWT_SECRET}|{canonical}".encode()).hexdigest()[:32]
+
+
+def sign_qr_payload(payload: dict, ttl_seconds: int = 120) -> dict:
+    """Agent-side: server stamps + signs the QR payload so a screenshot
+    can't be replayed later or forged."""
+    import time as _time
+    p = dict(payload)
+    p["ts"] = int(_time.time())
+    p["sig"] = _qr_signature(p)
+    return p
+
+
+class QrInvalid(Exception):
+    pass
+
+
+def verify_qr_payload(payload: dict, ttl_seconds: int = 300) -> None:
+    """Client-side: reject unsigned, tampered, or stale (>5min) payloads."""
+    import time as _time
+    sig = payload.get("sig")
+    ts = payload.get("ts")
+    if not sig or not ts:
+        raise QrInvalid("Unsigned QR payload")
+    check = {k: v for k, v in payload.items() if k != "sig"}
+    if not secrets.compare_digest(sig, _qr_signature(check)):
+        raise QrInvalid("Invalid QR signature")
+    if _time.time() - int(ts) > ttl_seconds:
+        raise QrInvalid("QR expired — ask the agent to generate a new one")
+
+
 def issue_token(user: User) -> str:
     now = datetime.now(timezone.utc)
     return jwt.encode(

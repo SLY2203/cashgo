@@ -26,10 +26,8 @@ class _ScanScreenState extends State<ScanScreen> {
       final p = jsonDecode(raw) as Map<String, dynamic>;
       final api = context.read<CashGoApi>();
       final Map<String, dynamic> res = p['op'] == 'cashin'
-          ? await api.scanCashin(p['agent_id'], (p['amount'] as num).toDouble(),
-              p['currency'])
-          : await api.scanCashout(p['agent_id'],
-              (p['amount'] as num).toDouble(), p['currency']);
+          ? await api.scanCashin(p)
+          : await api.scanCashout(p);
       setState(() {
         _result = p['op'] == 'cashin'
             ? 'Credited ${res['credited']} ${res['currency']} at '

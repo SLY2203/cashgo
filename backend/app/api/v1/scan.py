@@ -30,11 +30,22 @@ class ScanRequest(BaseModel):
     agent_id: UUID
     amount: Decimal = Field(gt=0)
     currency: str = Field(min_length=3, max_length=3)
+    ts: int | None = None
+    sig: str | None = None
+
+
+def _verify(body: ScanRequest) -> None:
+    from app.services import auth as auth_service
+    try:
+        auth_service.verify_qr_payload(body.model_dump())
+    except auth_service.QrInvalid as e:
+        raise HTTPException(403, str(e))
 
 
 @router.post("/cashin")
 def scan_cashin(body: ScanRequest, user: User = Depends(get_current_user),
                 db: Session = Depends(get_db)):
+    _verify(body)
     agent = db.get(PickupAgent, body.agent_id)
     if agent is None or not agent.is_active:
         raise HTTPException(404, "Agent not found or inactive")
@@ -63,6 +74,7 @@ def scan_cashin(body: ScanRequest, user: User = Depends(get_current_user),
 @router.post("/cashout")
 def scan_cashout(body: ScanRequest, user: User = Depends(get_current_user),
                  db: Session = Depends(get_db)):
+    _verify(body)
     agent = db.get(PickupAgent, body.agent_id)
     if agent is None or not agent.is_active:
         raise HTTPException(404, "Agent not found or inactive")

@@ -144,6 +144,27 @@ def cash_in(body: CashInRequest, db: Session = Depends(get_db)):
             "new_balance": str(wallet.balance), "agent": agent.agent_name}
 
 
+class QrTokenRequest(BaseModel):
+    agent_id: UUID
+    op: str = Field(pattern="^(cashin|cashout)$")
+    amount: Decimal = Field(gt=0)
+    currency: str = Field(min_length=3, max_length=3)
+
+
+@router.post("/qr-token/")
+def qr_token(body: QrTokenRequest, db: Session = Depends(get_db)):
+    """Server-signed, ~5-min-lived QR payload for the client to scan."""
+    agent = db.get(PickupAgent, body.agent_id)
+    if agent is None or not agent.is_active:
+        raise HTTPException(404, "Agent not found or inactive")
+    from app.services.auth import sign_qr_payload
+    payload = sign_qr_payload({
+        "op": body.op, "agent_id": str(body.agent_id),
+        "amount": float(body.amount), "currency": body.currency.upper()})
+    import json
+    return {"payload": json.dumps(payload, separators=(",", ":"))}
+
+
 @router.get("/history/")
 def agent_history(agent_id: UUID, db: Session = Depends(get_db)):
     """The booth's book: withdrawals paid out + cash-ins processed."""
